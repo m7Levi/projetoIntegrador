@@ -23,7 +23,7 @@ def desligar_controleAR():
 
 def buscar_dados_do_esp():
     """
-    Faz uma requisição HTTP para o ESP8266 e retorna os dados dos sensores.
+    Faz uma requisição HTTP para o ESP e retorna os dados dos sensores.
     """
     try:
         # O timeout é importante para não travar seu app se o ESP estiver offline
@@ -71,4 +71,5 @@ if __name__ == "__main__":
             # Ex: meu_label_temp.text = f"{dados_sensores['temperatura']} °C"
             pass
             
+
         time.sleep(1)
