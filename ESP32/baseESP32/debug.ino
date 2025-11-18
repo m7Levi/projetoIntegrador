@@ -4,21 +4,14 @@ void debug(){
     char caractereRecebido = Serial.read();
 
     if (caractereRecebido == '1') {
-      Serial.println("Modo: emissor IR (digite '0' para sair)");
-      while (true) {
-        if (Serial.available() && Serial.read() == '0') break;
-        // emissor();
-      }
+      Serial.println("aguardando sinal");
+      while (receptor() == false) { if (Serial.available() && Serial.read() == '0') break; }
       Serial.println("Comando fechado");
     }
 
     if (caractereRecebido == '2') {
-      Serial.println("Modo: receptor IR (digite '0' para sair)");
-      while (true) {
-        if (Serial.available() && Serial.read() == '0') break;
-        // receber_sinal();
-        delay(100);
-      }
+      Serial.println("enviando IR");
+      emissorIR(&IrReceiver.decodedIRData);
       Serial.println("Comando fechado");
     }
 
@@ -35,7 +28,12 @@ void debug(){
       Serial.println("Modo: Debug temperatura (digite '0' para sair)");
       while (true) {
         if (Serial.available() && Serial.read() == '0') break;
-        atualizarSensorTemperatura();
+        LeituraSensorTemperatura();
+        atualizarClimaAPI();
+        Serial.print("Temperatura interna: " + String(temperatura));
+        Serial.print("  |  temperatura externa: " + String(temperaturaExterna));
+        Serial.println("  |  comparar temperatura: " + String(compararTemperatura()));
+        delay(5000);
       }
       Serial.println("Comando fechado");
     }

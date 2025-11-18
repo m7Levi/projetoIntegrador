@@ -3,7 +3,7 @@ void detectarPessoas() {
   VL53L0X_RangingMeasurementData_t measureB;
 
   // Variável para lembrar quem detectou primeiro
-  static char primeiro = 0;  // 'A', 'B' ou 0 (nenhum)
+  static char primeiro = 0;
 
   // Leitura dos sensores
   tcaselect(MultSensorA);

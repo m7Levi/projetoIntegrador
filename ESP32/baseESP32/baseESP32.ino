@@ -11,8 +11,15 @@
 
 #include <time.h>
 
+#include "PinDefinitionsAndMore.h"
+#include <IRremote.hpp>
+
+#if !defined(ARDUINO_ESP32C3_DEV) // This is due to a bug in RISC-V compiler, which requires unused function sections :-(.
+#define DISABLE_CODE_FOR_RECEIVER // Disables static receiver code like receive timer ISR handler and static IRReceiver and irparams data. Saves 450 bytes program memory and 269 bytes RAM if receiving functions are not required.
+#endif
+
+
 #include <DHT.h>
-#include <IRsend.h>
 #include "Adafruit_VL53L0X.h"
 
 // ===================================================
@@ -33,20 +40,26 @@ const int daylightOffset_sec = 0;
   char buf[64];
   char buf2[80];
 
+struct tm timeinfo;
+
+
+
+// ==== TEMPERATURA EXTERNA (OpenWeather) ====
+
+const char* apiKey = "7a6c7c1ef1b24bdfa977ec15e6eb9695";  // <-- Troque pela sua API KEY
+const char* cidade = "Natal";
+const char* pais =   "BR";
+
+float temperaturaExterna = 0;
+float umidadeExterna = 0;
+
+
 // --- PINOS (ESP32) ---
-#define LEDPIN 0       // LED IR emissor
-#define IR_RECV_PIN 5  // Pino para receptor IR
 #define DHTPIN 18       // Pino do sensor DHT11
 
 // --- CONSTANTES ---
 #define DHTTYPE DHT11        // Define o tipo do sensor DHT
-#define maxLen 650           // Tamanho máximo do buffer para o receptor IR
 const int LIMITE_DIST = 800; // Distância mínima em cm para detecção
-int khz = 38;                // Frequência do emissor IR (NEC)
-
-// Dados brutos para o sinal IR (NEC)
-const uint16_t rawData[] = {
-};
 
 // ===================================================
 // ========== OBJETOS E VARIÁVEIS GLOBAIS ==========
@@ -54,7 +67,6 @@ const uint16_t rawData[] = {
 
 // --- Sensores ---
 DHT dht(DHTPIN, DHTTYPE);
-// IRsend irsend(LEDPIN);
 
 Adafruit_VL53L0X loxA = Adafruit_VL53L0X();
 Adafruit_VL53L0X loxB = Adafruit_VL53L0X();
@@ -67,12 +79,10 @@ unsigned long tempoA = 0;
 unsigned long tempoB = 0;
 int contarPessoas = 0;
 float temperatura;
+bool arCondicionado = false;
 
-
-
-// --- Buffer e variáveis para o receptor IR ---
-volatile unsigned long irBuffer[maxLen];
-volatile int x = 0;
+uint8_t sCommand = 0x90;
+uint8_t sRepeats = 1;
 
 // --- Variáveis para controle de tempo (não-bloqueante) ---
 unsigned long previousMillisDetect = 0;
@@ -80,10 +90,13 @@ unsigned long previousMillisDHT = 0;
 const long intervalDetect = 250; // Intervalo para checar os sensores de distância
 const long intervalDHT = 2000;   // Intervalo para ler o sensor DHT11
 
+
+
+
+
 // ===================================================
 // ========== PROTÓTIPOS DAS FUNÇÕES ===============
 // ===================================================
-void ICACHE_RAM_ATTR rxIR_Interrupt_Handler(); // <<-- LINHA ADICIONADA PARA CORRIGIR O ERRO
 
 
 // ===================================================
@@ -115,9 +128,12 @@ void setup() {
   delay(500);
   Serial.println("\nSistema iniciado no ESP8266...");
 
-  // --- Inicialização dos sensores e pinos ---
+  // --- inicialização do IR ------------------------------------------------------------------------------------------
+
+  IrReceiver.begin(IR_RECEIVE_PIN, ENABLE_LED_FEEDBACK);
+
+  // --- Inicialização dos sensores e pinos --------------------------------------------------------------------------
   dht.begin();
- // irsend.begin();
 
   Wire.begin(21, 22); 
 
@@ -142,14 +158,7 @@ void setup() {
   }
   else Serial.println("Sensor B OK");
 
-  Serial.println("chegou");
-
-  // Ativa interrupção no pino receptor IR
-  //attachInterrupt(digitalPinToInterrupt(IR_RECV_PIN), rxIR_Interrupt_Handler, CHANGE);
-
-
-
-  // --- Conexão com o WiFi ---
+  // --- Conexão com o WiFi -------------------------------------------------------------------------------------
   Serial.print("Conectando a ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
@@ -164,7 +173,7 @@ void setup() {
   // Define as rotas do servidor
   server.on("/", handleRoot);
   server.on("/dados", handleDadosSensor);
-
+  server.on("/controleAR", handleArControl);
   // Inicia o servidor
   server.begin();
   Serial.println("Servidor HTTP iniciado!");
@@ -191,8 +200,6 @@ void setup() {
     Serial.println("Não foi possível sincronizar horário via NTP.");
   }
 
-
-
 //================================================================================================================================
 
 }
@@ -207,5 +214,5 @@ void loop() {
   // Esta função verifica se algum cliente fez uma requisição ao servidor
   server.handleClient();
   debug();
-
+  // printLocalTime();
 }

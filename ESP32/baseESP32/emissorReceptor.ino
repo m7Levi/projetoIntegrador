@@ -1,37 +1,38 @@
-// void emissor() {
-//   Serial.println(F("Enviando sinal IR (NEC)..."));
-//   irsend.sendRaw(rawData, sizeof(rawData) / sizeof(rawData[0]), khz);
-//   delay(1000);
-// }
+bool receptor(){
+  if (IrReceiver.decode()) {
+    Serial.println(F("Sinal IR recebido!"));
 
-// void receber_sinal(){
-//   Serial.println(F("Pressione o botão do controle agora - apenas uma vez"));
-//   delay(50);
-  
-//   if (x) { // se capturou algum sinal
-//     digitalWrite(LEDPIN, HIGH); // LED indica que recebeu
-//     Serial.println();
-//     Serial.print(F("Raw: ("));
-//     Serial.print((x - 1));
-//     Serial.print(F(") "));
-    
-//     detachInterrupt(digitalPinToInterrupt(2)); // para captura durante impressão
-    
-//     for (int i = 1; i < x; i++) {
-//       Serial.print(irBuffer[i] - irBuffer[i - 1]);
-//       Serial.print(F(", "));
-//     }
-    
-//     x = 0; // reseta para próxima captura
-//     Serial.println();
-//     Serial.println();
-    
-//     digitalWrite(LEDPIN, LOW); // apaga LED
-//     attachInterrupt(digitalPinToInterrupt(2), rxIR_Interrupt_Handler, CHANGE); // reativa
-//   }
-// }
+    if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
+        Serial.println(F("protocolo não identificado"));
+       
+        IrReceiver.printIRResultRawFormatted(&Serial, true);
+        IrReceiver.resume(); 
+    } else {
+        IrReceiver.resume();
+        IrReceiver.printIRSendUsage(&Serial);
+    }
+    IrReceiver.resume(); // Pronto para receber o próximo sinal
+    return 1;
+  }
+  return 0;
+}
 
-// void ICACHE_RAM_ATTR rxIR_Interrupt_Handler() {
-//   if (x >= maxLen) return;
-//   irBuffer[x++] = micros();
-// }
+
+
+
+void emissorIR(IRData *dados) {
+  if (dados->protocol == NEC) {
+    IrSender.sendNEC2(dados->address, dados->command, 1);
+    Serial.println(F("Sinal NEC2 reenviado com sucesso."));
+    arCondicionado = !arCondicionado;
+  }
+
+  else if (dados->protocol == LG) {
+    IrSender.sendLG(dados->address, dados->command, 1);
+    Serial.println(F("Sinal LG reenviado com sucesso."));
+    arCondicionado = !arCondicionado;
+  }
+  else {
+    Serial.println(F("Protocolo não foi reenviado."));
+  }
+}
